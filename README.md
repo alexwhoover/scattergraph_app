@@ -1,4 +1,3 @@
 # scattergraph_app
 
-Readme
-"A line I wrote on my local computer" 
+An app which creates an interactive scattergraph based on data imported by the user in the form of a csv file.
