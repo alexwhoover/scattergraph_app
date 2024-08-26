@@ -1,6 +1,7 @@
 library(tidyverse)
+library(testthat)
 
-# Common Functions ####
+# COMMON FUNCTIONS ####
 
 # Function for theta calculation
 # Inputs: d = water depth in meters, D = pipe diameter in meters
@@ -66,28 +67,38 @@ compute_error <- function(df, C) {
 # Inputs: A timeseries dataframe with a column labelled "datetime"
 # Output: A dataframe with columns period_id, start, end, and count.
 get_consecutive_periods <- function(df) {
-  df <- df %>%
-    # Arrange data by datetime
-    arrange(datetime) %>%
+  if ("datetime" %in% names(df) &
+      inherits(df$datetime, "POSIXct") &
+      length(df$datetime > 0)) {
+    df_export <- df %>%
+      # Arrange data by datetime
+      arrange(datetime) %>%
+      
+      # Calculate the interval between consecutive datetime entries
+      mutate(interval = difftime(datetime, lag(datetime, default = first(datetime)), units = "mins"),
+             
+             # Identify new periods where the interval is greater than 2 days
+             new_period = ifelse(interval > 2 * 1440, 1, 0),
+             
+             # Create a unique period ID by cumulatively summing the new period flags
+             period_id = cumsum(new_period) + 1) %>%
+      
+      # Group data by period ID and summarize each period
+      group_by(period_id) %>%
+      summarise(start = datetime %>%
+                  min() %>%
+                  format("%Y-%m-%d %H:%M"),   # Start time of the period
+                end = datetime %>%
+                  max() %>%
+                  format("%Y-%m-%d %H:%M"),     # End time of the period
+                count = n(),             # Number of timestamps in the period
+                .groups = 'drop')
     
-    # Calculate the interval between consecutive datetime entries
-    mutate(interval = difftime(datetime, lag(datetime, default = first(datetime)), units = "mins"),
-           
-           # Identify new periods where the interval is greater than 2 days
-           new_period = ifelse(interval > 2 * 1440, 1, 0),
-           
-           # Create a unique period ID by cumulatively summing the new period flags
-           period_id = cumsum(new_period) + 1) %>%
-    
-    # Group data by period ID and summarize each period
-    group_by(period_id) %>%
-    summarise(start = as.character(min(datetime)),   # Start time of the period
-              end = as.character(max(datetime)),     # End time of the period
-              count = n(),             # Number of timestamps in the period
-              .groups = 'drop') %>%
-    
-    # Arrange the summary table by start time
-    arrange(start)
+    return(df_export)
+  } else {
+    return(NULL)
+  }
   
-  return(df)
+  
 }
+
