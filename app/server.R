@@ -10,54 +10,6 @@ source("functions.R")
 
 options(shiny.maxRequestSize=30*1024^2)
 
-# Import Rain Data ####
-df_rain <- read_csv("H:/ISDP/3_Projects/1_City_Wide/Monitoring/Data_Management/400_Project_Work/R Tools/scattergraph_app/Vancity_Credit_Union_Rain_Gauge.csv", skip = 2) %>%
-  select("datetime" = 1, "r_5min" = 2) %>%
-  mutate(datetime = as.POSIXct(datetime, format = "%m/%d/%Y %H:%M", tz = "UTC")) %>%
-  
-  mutate(
-    r_10min = rollapply(r_5min,
-                                width = 10/5,
-                                FUN = sum,
-                                align = "left",
-                                fill = NA),
-    r_15min = rollapply(r_5min,
-                        width = 15/5,
-                        FUN = sum,
-                        align = "left",
-                        fill = NA),
-    r_30min = rollapply(r_5min,
-                        width = 30/5,
-                        FUN = sum,
-                        align = "left",
-                        fill = NA),
-    r_1hr = rollapply(r_5min,
-                        width = 60/5,
-                        FUN = sum,
-                        align = "left",
-                        fill = NA),
-    r_2hr = rollapply(r_5min,
-                        width = 2*60/5,
-                        FUN = sum,
-                        align = "left",
-                        fill = NA),
-    r_6hr = rollapply(r_5min,
-                        width = 6*60/5,
-                        FUN = sum,
-                        align = "left",
-                        fill = NA),
-    r_12hr = rollapply(r_5min,
-                        width = 12*60/5,
-                        FUN = sum,
-                        align = "left",
-                        fill = NA),
-    r_24hr = rollapply(r_5min,
-                        width = 24*60/5,
-                        FUN = sum,
-                        align = "left",
-                        fill = NA),
-  )
-
 # Define server logic ####
 server <- function(input, output) {
   
@@ -432,27 +384,12 @@ server <- function(input, output) {
   summary_table <- eventReactive(input$render_gaps_table, {
     req(data())
     df <- data()
-    
     summary_table <- get_consecutive_periods(df)
-
     summary_table
-  })
-  
-  rain_table <- eventReactive(input$render_gaps_table, {
-    req(data())
-    df <- data()
-
-    rain_table <- get_max_rainfall(df_rain, min(df$datetime), max(df$datetime))
-    
-    rain_table
   })
   
   output$data_table <- renderTable({
     summary_table()
-  })
-  
-  output$rain_table <- renderTable({
-    rain_table()
   })
 
 }

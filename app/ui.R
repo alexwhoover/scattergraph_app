@@ -83,10 +83,7 @@ ui <- fluidPage(
       tableOutput("coefList"),
       
       # Consecutive Data Periods
-      tableOutput("data_table"),
-      
-      # Corresponding Max Storms
-      tableOutput("rain_table")
+      tableOutput("data_table")
     )
   )
 )
