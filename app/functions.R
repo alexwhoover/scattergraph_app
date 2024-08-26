@@ -7,13 +7,18 @@ library(testthat)
 # Inputs: d = water depth in meters, D = pipe diameter in meters
 # Output: the angle, theta, in radians
 calculate_theta <- function(d, D) {
-  tryCatch({
+  if (any(is.na(d) | is.na(D))) {
+    warning("Water depth (d) or pipe diameter (D) is NA. Returning NA.")
+    NA
+  } else if (any(d < 0 | D < 0)) {
+    warning("Water depth (d) and pipe diameter (D) must be positive numbers. Returning NA.")
+    NA
+  } else if (any(d > D)) {
+    warning("Water depth (d) must less than or equal to pipe diameter (D). Returning NA.")
+    NA
+  } else {
     2 * acos(1 - 2 * d / D)
-  },
-  warning = function(cond) {
-    print("Theta could not be calculated due to depth above pipe diameter")
-    0
-  })
+  }
 }
 
 # Function for flow area calculation
