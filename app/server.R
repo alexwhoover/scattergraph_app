@@ -19,21 +19,20 @@ server <- function(input, output) {
     # Check that file exists
     req(input$data_file)
     
-    # Rename to inFile
-    inFile <- input$data_file
+    # Rename to in_file
+    in_file <- input$data_file
     
     # Try to read csv. If error, print notification.
     tryCatch({
-      df <- read_csv(inFile$datapath, skip = input$n_skip) %>%
+      df <- read_csv(in_file$datapath, skip = input$n_skip) %>%
         select('datetime' = input$t_header, 'd' = input$d_header, 'v' = input$v_header) %>%
         
         # Convert depth to mm to make calculations easier. It is converted back during final plotting.
         mutate(d = d / 1000)
       
       # Print message to console for debugging purposes
-      print("Data successfully read")
-      print(head(df))
-      
+      showNotification("Data successfully read")
+
       # Return the filtered dataframe
       df
     }, error = function(e) {
@@ -42,6 +41,7 @@ server <- function(input, output) {
       NULL
     })
   })
+  #######################################
   
   # Display min and max dates in imported CSV ----
   # Do not filter data
@@ -65,6 +65,7 @@ server <- function(input, output) {
       NULL
     })
   })
+  #######################################
   
   # Get Plot Title
   plot_title <- eventReactive(input$render_plot, {
@@ -156,9 +157,10 @@ server <- function(input, output) {
          )
     
   })
+  ##################################################
   
   
-  # Dataframe for Plotting ----
+  # Wide Dataframe Calculation ----
   df_curves <- eventReactive(input$render_plot, {
     
     # Calculate coefficients and R^2 values
@@ -211,176 +213,88 @@ server <- function(input, output) {
     # Return plotting dataframe
     df_curves
   })
+  
+  # Conversion from Wide Dataframe to Long Dataframe ----
+  df_curves_long <- reactive({
+    req(df_curves())
+    df_curves <- df_curves()
+    
+    Q_max = max(df_curves$Q)
+    
+    # Define the order for plot legend
+    legend_order <- c("v_DM", "v_LC", "v_SS", "iso_2", "iso_5", "iso_10", "iso_15", "iso_20", "iso_25", "v_07", "v_1", "v_15")
+    legend_labels <- c("Design Method", "Lanfear-Coll Method", "Stevens-Schutzback Method",
+                       paste0('2% iso-Q = ', as.character(round(Q_max * 0.02, 3)), ' cms'),
+                       paste0('5% iso-Q = ', as.character(round(Q_max * 0.05, 3)), ' cms'),
+                       paste0('10% iso-Q = ', as.character(round(Q_max * 0.1, 3)), ' cms'),
+                       paste0('15% iso-Q = ', as.character(round(Q_max * 0.15, 3)), ' cms'),
+                       paste0('20% iso-Q = ', as.character(round(Q_max * 0.20, 3)), ' cms'),
+                       paste0('25% iso-Q = ', as.character(round(Q_max * 0.25, 3)), ' cms'),
+                       "Fr = 0.7",
+                       "Fr = 1.0",
+                       "Fr = 1.5"
+    )
 
-  
-  
-  # Send Plot to Output ----
-  observeEvent(input$render_plot, {
-    output$scatterplot <- renderPlotly(
-      {
-      # Check data is available
-      req(data())
-      
-      # Get user input data
-      df <- data() %>%
-        filter(datetime >= input$start_date & datetime < input$end_date)
-      
-      df_filtered <- df %>%
-        filter(v >= input$v_min & v <= input$v_max) %>% # Filter by velocity range
-        filter(d >= input$d_min/1000 & d <= input$d_max/1000) # Filter by depth range
-      
-      df_discarded <- df %>%
-        filter(v < input$v_min | v > input$v_max | d < input$d_min/1000 | d > input$d_max/1000)
-      
-      print(df_discarded)
-      
-      # Get calculated curves
-      tryCatch({
-        df_curves <- df_curves()
-        
-        # Print plotting dataframe to console for debugging
-        head(df_curves())
-        
-      }, error = function(e) {
-        showNotification("Error calculating curves.", type = "error")
-        NULL
-      })
-      
-      # Data Download ====
-      
-      df_download <- df %>%
-        mutate(d = d * 1000) %>%
-        select(
-          "datetime",
-          "depth (d) (mm)" = "d",
-          "velocity (v) (m/s)" = "v"
-        )
-      
-      df_download_curves <- df_curves %>%
-        select(
-          "depth (d) (%)" = "d_percent",
-          "depth (d) (m)" = "d",
-          "depth_e (d_e) (m)" = "d_e",
-          "theta (rad)" = "theta",
-          "theta_e (rad)" = "theta_e",
-          "Area (A) (m^2)" = "A",
-          "Area (A_e) (m^2)" = "A_e",
-          "Wetted Perimeter (P) (m)" = "P",
-          "Hydraulic Radius (R) (m)" = "R",
-          "Hydraulic Radius (R_e) (m)" = "R_e",
-          "Velocity (v_DM) (m/s)" = "v_DM",
-          "Velocity (v_LC) (m/s)" = "v_LC",
-          "Velocity (v_SS) (m/s)" = "v_SS",
-          "Surface Width (B) (m)" = "B",
-          "Hydraulic Mean Depth (d_h) (m)" = "d_h",
-          "Velocity (Fr = 0.7) (m/s)" = "v_07",
-          "Velocity (Fr = 1.0) (m/s)" = "v_1",
-          "Velocity (Fr = 1.5) (m/s)" = "v_15",
-          "Flowrate (Q_ss) (m^3/s)" = "Q",
-          "Velocity (Q = 2% max(Q_ss)) (m/s)" = "iso_2",
-          "Velocity (Q = 5% max(Q_ss)) (m/s)" = "iso_5",
-          "Velocity (Q = 10% max(Q_ss)) (m/s)" = "iso_10",
-          "Velocity (Q = 15% max(Q_ss)) (m/s)" = "iso_15",
-          "Velocity (Q = 20% max(Q_ss)) (m/s)" = "iso_20",
-          "Velocity (Q = 25% max(Q_ss)) (m/s)" = "iso_25"
-        )
-      
-      output$downloadData <- downloadHandler(
-        filename = function() {
-          "df.csv"
-        },
-        content = function(file) {
-          write.csv(df_download, file)
-        }
-      )
-      
-      output$downloadCurves <- downloadHandler(
-        filename = function() {
-          "df_curves.csv"
-        },
-        content = function(file) {
-          write.csv(df_download_curves, file)
-        }
-      )
-      
-      # Plotting ====
-      
-      # Calculate the maximum estimated Q value (SS Method)
-      Q_max = max(df_curves$Q)
-      
-      # Define the order for plot legend
-      legend_order <- c("v_DM", "v_LC", "v_SS", "iso_2", "iso_5", "iso_10", "iso_15", "iso_20", "iso_25", "v_07", "v_1", "v_15")
-      legend_labels <- c("Design Method", "Lanfear-Coll Method", "Stevens-Schutzback Method", 
-                         paste0('2% iso-Q = ', as.character(round(Q_max * 0.02, 3)), ' cms'),
-                         paste0('5% iso-Q = ', as.character(round(Q_max * 0.05, 3)), ' cms'),
-                         paste0('10% iso-Q = ', as.character(round(Q_max * 0.1, 3)), ' cms'),
-                         paste0('15% iso-Q = ', as.character(round(Q_max * 0.15, 3)), ' cms'),
-                         paste0('20% iso-Q = ', as.character(round(Q_max * 0.20, 3)), ' cms'),
-                         paste0('25% iso-Q = ', as.character(round(Q_max * 0.25, 3)), ' cms'),
-                         "Fr = 0.7",
-                         "Fr = 1.0",
-                         "Fr = 1.5"
-      )
-      
-      # Convert dataframe to format compatible with ggplot
-      df_curves_long <- df_curves %>%
-        select(d, all_of(legend_order)) %>%
-        pivot_longer(cols = all_of(legend_order), names_to = "Legend", values_to = "v") %>%
-        mutate(Legend = factor(Legend, levels = legend_order, labels = legend_labels)) %>%
-        filter(v != Inf, v > 0) %>%
-        select(v, d, Legend) %>%
-        arrange(Legend, d)
-      
-      # Create ggplot2 object
-      p <- df_curves_long %>%
-        # Convert back to mm for plotting
-        mutate(d_mm = d * 1000) %>%
-        
-        ggplot(aes(x = v, y = d_mm, color = Legend)) +
-        geom_point(data = df_filtered %>% select(v, d, datetime) %>%
-                     mutate(d_mm = d * 1000), 
-                   aes(x = v, y = d_mm, label = datetime), size = 0.3, shape = 1, color = "red4", alpha = 0.7) +
-        geom_point(data = df_discarded %>% select(v, d, datetime) %>%
-                     mutate(d_mm = d * 1000), 
-                   aes(x = v, y = d_mm, label = datetime), size = 0.3, shape = 1, color = "gray", alpha = 0.5) +
-        geom_path() +
-        xlim(0, max(max(df_curves$v_DM, df_curves$v_LC, df_curves$v_SS), max(df_filtered$v)) + 1) +
-        labs(x = "Velocity (m/s)", y = "Depth (mm)", title = plot_title()) +
-        theme_minimal()
-      
-      # Convert ggplot2 object to plotly object
-      p_plotly <- ggplotly(p, dynamicTicks = "y") %>%
-        layout(legend = list(title=list(text = 'Legend'))) %>%
-        config(modeBarButtonsToAdd = 'eraseshape')
-      
-      # Return plotly object to display
-      p_plotly
-    })
+    # Convert dataframe to format compatible with ggplot
+    df_curves_long <- df_curves %>%
+      select(d, all_of(legend_order)) %>%
+      pivot_longer(cols = all_of(legend_order), names_to = "Legend", values_to = "v") %>%
+      mutate(Legend = factor(Legend, levels = legend_order, labels = legend_labels)) %>%
+      filter(v != Inf, v > 0) %>%
+      mutate(d_mm = d * 1000) %>%
+      select(v, d, d_mm, Legend) %>%
+      arrange(Legend, d)
+    
+    # Return dataframe with columns: v, d, d_mm, Legend
+    df_curves_long
   })
   
-  # Data Download ====
-  output$downloadData <- downloadHandler(
-    filename = function() {
-      "df.csv"
-    },
-    content = function(file) {
-      df %>%
-        mutate(d = d * 1000) %>%
-        select("datetime", "D (mm)" = "d", "V (m/s)" = "v") %>%
-        write_csv(file)
-    }
-  )
+  # Reformat data for plotting ----
+  data_formatted <- eventReactive(input$render_plot, {
+    req(data())
+    data_raw <- data() %>%
+      filter(datetime >= input$start_date & datetime < input$end_date)
+    
+    data_raw %>%
+      mutate(
+        d_mm = d * 1000,
+        Legend = ifelse(
+          v >= input$v_min & v <= input$v_max & d_mm >= input$d_min & d_mm <= input$d_max,
+          "Observed",
+          "Discarded"
+        )
+      )
+    
+  })
   
-  output$downloadCurves <- downloadHandler(
-    filename = function() {
-      "df_curves.csv"
-    },
-    content = function(file) {
-      write_csv(df_curves, filename)
-    }
-  )
   
-  # Summarize Consecutive Data in Output Table "data_table" ====
+  # Plotting ----
+  output$scatterplot <- renderPlotly({
+    df_curves_long <- df_curves_long()
+    df_data_filtered <- data_formatted()
+    
+    # Calculate x bound for plot visual
+    max_x <- df_curves_long %>%
+      filter(Legend %in% c("Design Method", "Lanfear-Coll Method", "Stevens-Schutzback Method")) %>%
+      summarize(max_x = max(v, na.rm = TRUE)) %>%
+      pull()
+    
+    # Plot
+    ggplotly(
+      # Create ggplot object
+      ggplot() +
+        geom_path(data = df_curves_long, aes(x = v, y = d_mm, color = Legend)) + # Add all curves
+        geom_point(data = df_data_filtered[df_data_filtered$Legend == "Observed", ], aes(x = v, y = d_mm, label = datetime), color = "green4", size = 0.5) +
+        geom_point(data = df_data_filtered[df_data_filtered$Legend == "Discarded", ], aes(x = v, y = d_mm, label = datetime), color = "gray", size = 0.5) + 
+        xlim(0, max_x) +
+        labs(x = "Velocity (m/s)", y = "Depth (mm)", title = plot_title()) +
+        theme_minimal(),
+      
+      dynamicTicks = "y"
+    )
+  })
+
+  # Summarize Consecutive Data in Output Table "data_table" ----
   summary_table <- eventReactive(input$render_gaps_table, {
     req(data())
     df <- data()

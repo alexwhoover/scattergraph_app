@@ -64,14 +64,7 @@ ui <- fluidPage(
       p('\n'),
       
       # Button: Render Data Gaps Table
-      actionButton(inputId = "render_gaps_table", label = "Show Data Gaps"),
-      p('\n'),
-      
-      # Data Download
-      downloadButton("downloadData", "Download Filtered Data"),
-      
-      # Data Download
-      downloadButton("downloadCurves", "Download Calculated Curves")
+      actionButton(inputId = "render_gaps_table", label = "Show Data Gaps")
     ),
     
     # Main panel for displaying outputs
