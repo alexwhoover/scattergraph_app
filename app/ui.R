@@ -21,29 +21,25 @@ ui <- fluidPage(
       
       # Input: Header Names
       numericInput("n_skip", "# Rows to Skip:", value = 2),
-      textInput("t_header", "Timestamp Column Name:", value = "yyyy/MM/dd hh:mm:ss"),
-      textInput("d_header", "Depth Column Name:", value = "DFINAL (mm)"),
-      textInput("v_header", "Velocity Column Name:", value = "VFINAL (m/s)"),
-      
-      # Input: Plot Title
-      textInput("plot_title", "Plot Title:", value = ""),
+      selectInput("t_header", "Timestamp Column Name:", choices = NULL),
+      selectInput("d_header", "Depth Column Name:", choices = NULL),
+      selectInput("v_header", "Velocity Column Name:", choices = NULL),
       
       # Input: Date Range
       dateInput("start_date", "Start Date:", value = as.Date("2020-01-01")),
       dateInput("end_date", "End Date:", value = as.Date("2024-06-26")),
       
+      # Input: Plot Title
+      textInput("plot_title", "Plot Title:", value = ""),
+      
       # Output: Table to display min/max dates
       tableOutput("file_contents"),
       
       # Input: Velocity Value Range
-      # sliderInput("v_min", "Minimum Velocity (m/s):", min = 0, max = 10, value = 0, step = 0.1),
-      # sliderInput("v_max", "Maximum Velocity (m/s):", min = 0, max = 10, value = 10, step = 0.1),
       numericInput("v_min", "Minimum Velocity (m/s)", value = 0),
       numericInput("v_max", "Maximum Velocity (m/s)", value = 100),
       
       # Input: Depth Value Range
-      # sliderInput("d_min", "Minimum Depth (m):", min = 0, max = 2, value = 0, step = 0.05),
-      # sliderInput("d_max", "Maximum Depth (m):", min = 0, max = 2, value = 2, step = 0.05),
       numericInput("d_min", "Minimum Depth (mm)", value = 0),
       numericInput("d_max", "Maximum Depth (mm)", value = 10000),
       
@@ -54,7 +50,7 @@ ui <- fluidPage(
       numericInput("D", "Pipe Diameter (mm): ", value = 600),
       
       # Input: Pipe Slope
-      numericInput("S", "Pipe Slope (m/m): ", value = 0.01),
+      numericInput("S", "Pipe Slope (%): ", value = 1.0),
       
       # Input: Dead Dog
       numericInput("d_dog", "Dead Dog (mm): ", value = 0),
@@ -69,14 +65,12 @@ ui <- fluidPage(
     
     # Main panel for displaying outputs
     mainPanel(
-      # Output: Plot
-      plotlyOutput("scatterplot", height = "800px"),
-      
-      # Table to display stats
-      tableOutput("coefList"),
-      
-      # Consecutive Data Periods
-      tableOutput("data_table")
+      tabsetPanel(
+        tabPanel("Data Preview", h2("Raw Data Preview"), fluidRow(tableOutput("data_preview")), h2("Formatted Data Preview"), fluidRow(tableOutput("data_preview_formatted")), h2("Summary Statistics"), fluidRow(tableOutput("summary_stats"))),
+        tabPanel("Data Summary", tableOutput("consecutive_periods_table")),
+        tabPanel("Plot", plotlyOutput("scatterplot", height = "800px"), tableOutput("coefList"))
+
+      )
     )
   )
 )

@@ -2,8 +2,6 @@
 library(shiny)
 library(plotly)
 library(tidyverse)
-library(lubridate)
-library(zoo)
 
 # Load mathematical functions for calculating partial flow in circular pipe
 source("functions.R")
@@ -11,81 +9,120 @@ source("functions.R")
 options(shiny.maxRequestSize=30*1024^2)
 
 # Define server logic ####
-server <- function(input, output) {
+server <- function(input, output, session) {
   
-  # Get data from user input ----
-  data <- reactive({
-    
-    # Check that file exists
-    req(input$data_file)
-    
-    # Rename to in_file
-    in_file <- input$data_file
-    
-    # Try to read csv. If error, print notification.
-    tryCatch({
-      df <- read_csv(in_file$datapath, skip = input$n_skip) %>%
-        select('datetime' = input$t_header, 'd' = input$d_header, 'v' = input$v_header) %>%
+  # Data Import
+  # data_raw <- eventReactive(input$data_file, {
+  #   print(test)
+  # 
+  #   tryCatch({
+  #     df <- read_csv(input$data_file$datapath, skip = input$n_skip)
+  #     showNotification("Data successfully read")
+  # 
+  #     df
+  #   }, error = function(e) {
+  #     showNotification("Error reading the CSV file.", type = "error")
+  #     NULL
+  #   })
+  # })
+  
+  
+  # Import Data ####
+  # Reactive Dependencies: data_file and n_skip
+  data <- reactiveValues(raw = NULL)
+  
+  observeEvent({
+    input$data_file
+    input$n_skip
+  }, {
+    print("working")
+    if(!is.null(input$data_file)) {
+      tryCatch({
+        # Read uploaded csv file    
+        data$raw <- read_csv(input$data_file$datapath, skip = input$n_skip)
         
-        # Convert depth to mm to make calculations easier. It is converted back during final plotting.
-        mutate(d = d / 1000)
+        # Update dropdowns with column headers from csv file
+        updateSelectInput(session, "t_header", choices = names(data$raw))
+        updateSelectInput(session, "d_header", choices = names(data$raw))
+        updateSelectInput(session, "v_header", choices = names(data$raw))
+        
+        # Preview Data
+        output$data_preview <- renderTable(head(data$raw))
+        output$summary_stats <- renderTable(
+          data$raw %>%
+            summary() %>%
+            as.data.frame() %>%
+            separate(Freq, c("Stat", "Value"), sep = ":") %>%
+            filter(!is.na(Stat)) %>%
+            select("Column" = "Var2", "Stat", "Value") %>%
+            pivot_wider(names_from = Stat, values_from = Value)
+        )
+        
+        showNotification("Data successfully read")
+      }, 
       
-      # Print message to console for debugging purposes
-      showNotification("Data successfully read")
-
-      # Return the filtered dataframe
-      df
-    }, error = function(e) {
-      # Error message if failed to read csv file.
-      showNotification("Error reading the CSV file. Please ensure it is properly formatted.", type = "error")
-      NULL
-    })
+      error = function(e) {
+        showNotification("Error reading the CSV file.", type = "error")
+        data$raw <- NULL
+      })
+    }
   })
-  #######################################
   
-  # Display min and max dates in imported CSV ----
-  # Do not filter data
-  output$file_contents <- renderTable({
-    # Check that data exists
-    req(data())
-    
-    # Import data
-    df <- data()
+  observeEvent({
+    input$t_header
+    input$d_header
+    input$v_header
+  }, {
+    req(data$raw)
     
     tryCatch({
-      df <- df %>%
-        arrange(datetime) %>% # Sort by datetime
-        filter(row_number() %in% c(1, n())) %>% # Keep first and last row of dataframe
-        mutate(datetime = format(as.Date(datetime, origin = 1900-01-01), "%Y-%m-%d")) %>% # Convert datetime to only date
-        select("Min / Max Dates" = "datetime") # Rename column header
+      data$formatted <- data$raw %>%
+        select('datetime' = input$t_header, 'd' = input$d_header, 'v' = input$v_header) %>%
+        mutate(
+          datetime = as.POSIXct(datetime, tz = "UTC"),
+          d = d / 1000
+        )
       
-      df
+      output$data_preview_formatted <- renderTable(head(data$formatted %>% mutate(datetime = format(datetime, format = "%Y-%m-%d %H:%M"), d = d * 1000)))
+      print(data$formatted)
+      print("data formatted")
     }, error = function(e) {
-      showNotification("Error printing max and min dates.", type = "error")
-      NULL
+      print("data not formatted")
     })
+    
   })
-  #######################################
   
-  # Get Plot Title
-  plot_title <- eventReactive(input$render_plot, {
-    input$plot_title
-  })
+  
+  
+  # Reformat raw data into standard format for later calculations
+  # Output is a dataframe with columns datetime, d (in meters), v (in m/s)
+  # data <- eventReactive(input$render_plot, {
+  #   req(data_raw())
+  #   
+  #   data_raw <- isolate(data_raw())
+  #   
+  #   data_raw %>%
+  #     select('datetime' = input$t_header, 'd' = input$d_header, 'v' = input$v_header) %>%
+  #     mutate(d = d / 1000)
+  # })
+  
+  
+  #######################################
   
   # Coefficient Calculation ----
   # Reactive function that returns a vector of coefficients and R^2 values
   # in format v_coef = list(C_DM, R2_DM, C_LC, R2_LC, C_SS, R2_SS)
   # Filter data
   v_coef <- eventReactive(input$render_plot, {
-    req(data())
-    df <- data() %>%
+    req(data$formatted)
+    df <- data$formatted %>%
       filter(datetime >= input$start_date & datetime < input$end_date) %>%
       filter(v >= input$v_min & v <= input$v_max) %>% # Filter by velocity range
       filter(d >= input$d_min/1000 & d <= input$d_max/1000) # Filter by depth range
     
     # Design Method ====
     # Calculate coefficient based on user input values
-    C_DM <- (1/input$n)*input$S^(0.5)
+    C_DM <- (1/input$n)*(input$S/100)^(0.5)
     
     # Compute stats for R^2 calculation
     stats_DM = df %>% select(v, d) %>%
@@ -168,7 +205,7 @@ server <- function(input, output) {
     
     # Output v_coef to table
     output$coefList <- renderTable({
-      req(data())
+      req(data$formatted)
       
       v_coef
     })
@@ -251,8 +288,8 @@ server <- function(input, output) {
   
   # Reformat data for plotting ----
   data_formatted <- eventReactive(input$render_plot, {
-    req(data())
-    data_raw <- data() %>%
+    req(data$formatted)
+    data_raw <- data$formatted %>%
       filter(datetime >= input$start_date & datetime < input$end_date)
     
     data_raw %>%
@@ -287,7 +324,7 @@ server <- function(input, output) {
         geom_point(data = df_data_filtered[df_data_filtered$Legend == "Observed", ], aes(x = v, y = d_mm, label = datetime), color = "green4", size = 0.5) +
         geom_point(data = df_data_filtered[df_data_filtered$Legend == "Discarded", ], aes(x = v, y = d_mm, label = datetime), color = "gray", size = 0.5) + 
         xlim(0, max_x) +
-        labs(x = "Velocity (m/s)", y = "Depth (mm)", title = plot_title()) +
+        labs(x = "Velocity (m/s)", y = "Depth (mm)", title = input$plot_title) +
         theme_minimal(),
       
       dynamicTicks = "y"
@@ -295,15 +332,13 @@ server <- function(input, output) {
   })
 
   # Summarize Consecutive Data in Output Table "data_table" ----
-  summary_table <- eventReactive(input$render_gaps_table, {
-    req(data())
-    df <- data()
+  observeEvent(input$render_gaps_table, {
+    req(data$formatted)
+    df <- data$formatted
+    
     summary_table <- get_consecutive_periods(df)
-    summary_table
-  })
-  
-  output$data_table <- renderTable({
-    summary_table()
+    
+    output$consecutive_periods_table <- renderTable({summary_table})
   })
 
 }
