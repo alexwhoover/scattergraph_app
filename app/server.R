@@ -2,6 +2,7 @@
 library(shiny)
 library(plotly)
 library(tidyverse)
+library(openxlsx)
 
 # Load mathematical functions for calculating partial flow in circular pipe
 source("functions.R")
@@ -9,10 +10,10 @@ source("functions.R")
 options(shiny.maxRequestSize=30*1024^2)
 
 server <- function(input, output, session) {
-  lapply(c("start_date", "end_date", "plot_title", "v_min", "v_max", "d_min", "d_max", "n", "D", "S", "d_dog", "render_plot"), disable)
+  lapply(c("start_date", "end_date", "plot_title", "v_min", "v_max", "d_min", "d_max", "n", "D", "S", "d_dog", "render_plot", "save_report"), disable)
   
   # Import Data ####
-  data <- reactiveValues(raw = NULL)
+  data <- reactiveValues(raw = NULL, formatted = NULL, formatted_q = NULL)
   
   # Reactive Dependencies: data_file and n_skip
   observeEvent({
@@ -29,6 +30,7 @@ server <- function(input, output, session) {
         updateSelectInput(session, "t_header", choices = names(data$raw))
         updateSelectInput(session, "d_header", choices = names(data$raw))
         updateSelectInput(session, "v_header", choices = names(data$raw))
+        updateSelectInput(session, "q_header", choices = c("Not Applicable", names(data$raw)))
         
         # Preview Data
         output$data_preview <- renderTable(head(data$raw))
@@ -60,6 +62,7 @@ server <- function(input, output, session) {
     input$t_header
     input$d_header
     input$v_header
+    input$q_header
   }, {
     req(data$raw)
     
@@ -71,8 +74,19 @@ server <- function(input, output, session) {
           d = d / 1000
         )
       
+      if(!is.null(input$q_header) & input$q_header != "Not Applicable") {
+        print("yes")
+        data$formatted_q <- data$raw %>%
+          select('datetime' = input$t_header, 'd' = input$d_header, 'v' = input$v_header, 'q' = input$q_header) %>%
+          mutate(
+            datetime = as.POSIXct(datetime, tz = "UTC")
+          )
+        
+        print(data$formatted_q)
+      }
+      
+      
       output$data_preview_formatted <- renderTable(head(data$formatted %>% mutate(datetime = format(datetime, format = "%Y-%m-%d %H:%M"), d = d * 1000)))
-      print(data$formatted)
       print("data formatted")
     }, error = function(e) {
       print("data not formatted")
@@ -100,6 +114,8 @@ server <- function(input, output, session) {
     updateDateInput(session, "end_date", value = as.Date(max_date))
     
   })
+  
+  observeEvent(input$render_plot, enable("save_report"))
   
   #########################################################
   
@@ -328,7 +344,36 @@ server <- function(input, output, session) {
       dynamicTicks = "y"
     )
   })
-
+  
+  ########################################################
+  
+  # Report Generation ####
+  
+  observeEvent(input$save_report, {
+    
+    print(getwd())
+    
+    # Open workbook template
+    wb <- loadWorkbook("../templates/summary_template.xlsx")
+    
+    # Paste formatted data into "Data" sheet
+    data <- data$formatted_q %>%
+      select("Timestamp" = datetime, "Depth (mm)" = d, "Velocity (m/s)" = v, "Flowrate (L/s)" = q)
+    
+    writeDataTable(wb, sheet = "Data", x = data, startCol = 1, startRow = 1, tableName = "data")
+    
+    #curves <- df_curves()
+    
+    # Write information to "Summary" sheet
+    writeData(wb, sheet = "Summary", x = as.character(Sys.Date()), startCol = 2, startRow = 3)
+    writeData(wb, sheet = "Summary", x = input$D, startCol = 4, startRow = 1)
+    writeData(wb, sheet = "Summary", x = input$S, startCol = 4, startRow = 2)
+    writeData(wb, sheet = "Summary", x = as.character(input$start_date), startCol = 2, startRow = 4)
+    writeData(wb, sheet = "Summary", x = as.character(input$end_date), startCol = 2, startRow = 5)
+    
+    saveWorkbook(wb, paste0("../reports/exported_report_", format(Sys.time(), format = "%Y%m%d_%H%M"), ".xlsx"))
+  })
+  
   
 
 }

@@ -26,6 +26,7 @@ ui <- fluidPage(
       selectInput("t_header", "Timestamp Column Name:", choices = NULL),
       selectInput("d_header", "Depth Column Name:", choices = NULL),
       selectInput("v_header", "Velocity Column Name:", choices = NULL),
+      selectInput("q_header", "Flow Column Name (If Generating Report)", choices = NULL),
       
       # Button: Lock-in Data
       actionButton(inputId = "lock_in", label = "Confirm Data"),
@@ -59,12 +60,16 @@ ui <- fluidPage(
       numericInput("d_dog", "Dead Dog (mm): ", value = 0),
       
       # Button: Render Plot
-      actionButton(inputId = "render_plot", label = "Render Plot")
+      fluidRow(
+        column(width = 4, actionButton(inputId = "render_plot", label = "Render Plot")),
+        column(width = 4, actionButton(inputId = "save_report", label = "Generate Report"))
+        )
     ),
     
     # Main panel for displaying outputs
     mainPanel(
       tabsetPanel(
+        tabPanel("Instructions", h2("Data Format"), p("The input csv file must include data for datetime, depth and velocity."), p("\n"), p("Datetime must be in the format YYYY-MM-DD HH:MM:SS, depth must be in millimeters, and velocity must be in meters per second.")),
         tabPanel("Data Preview", h2("Raw Data Preview"), fluidRow(tableOutput("data_preview")), h2("Formatted Data Preview"), fluidRow(tableOutput("data_preview_formatted")), h2("Summary Statistics"), fluidRow(tableOutput("summary_stats")), h2("Data Gaps"), fluidRow(tableOutput("data_gaps"))),
         tabPanel("Plot", plotlyOutput("scatterplot", height = "800px"), tableOutput("coefList"))
 
