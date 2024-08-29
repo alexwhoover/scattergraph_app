@@ -8,29 +8,13 @@ source("functions.R")
 
 options(shiny.maxRequestSize=30*1024^2)
 
-# Define server logic ####
 server <- function(input, output, session) {
-  
-  # Data Import
-  # data_raw <- eventReactive(input$data_file, {
-  #   print(test)
-  # 
-  #   tryCatch({
-  #     df <- read_csv(input$data_file$datapath, skip = input$n_skip)
-  #     showNotification("Data successfully read")
-  # 
-  #     df
-  #   }, error = function(e) {
-  #     showNotification("Error reading the CSV file.", type = "error")
-  #     NULL
-  #   })
-  # })
-  
+  lapply(c("start_date", "end_date", "plot_title", "v_min", "v_max", "d_min", "d_max", "n", "D", "S", "d_dog", "render_plot"), disable)
   
   # Import Data ####
-  # Reactive Dependencies: data_file and n_skip
   data <- reactiveValues(raw = NULL)
   
+  # Reactive Dependencies: data_file and n_skip
   observeEvent({
     input$data_file
     input$n_skip
@@ -67,7 +51,11 @@ server <- function(input, output, session) {
       })
     }
   })
+  ############################################################
   
+  # Format Data ####
+  
+  # Reactive dependencies: t_header, d_header, v_header
   observeEvent({
     input$t_header
     input$d_header
@@ -92,22 +80,30 @@ server <- function(input, output, session) {
     
   })
   
+  # Reactive dependencies: lock_in
+  observeEvent(input$lock_in, {
+    lapply(c("n_skip", "t_header", "d_header", "v_header"), disable)
+    lapply(c("start_date", "end_date", "plot_title", "v_min", "v_max", "d_min", "d_max", "n", "D", "S", "d_dog", "render_plot"), enable)
+    
+    min_date <- data$formatted %>%
+      summarize(min_date = min(datetime, na.rm = TRUE)) %>%
+      pull()
+    
+    max_date <- data$formatted %>%
+      summarize(max_date = max(datetime, na.rm = TRUE)) %>%
+      pull()
+    
+    data_gaps <- get_consecutive_periods(data$formatted)
+    output$data_gaps <- renderTable(data_gaps)
+    
+    updateDateInput(session, "start_date", value = as.Date(min_date))
+    updateDateInput(session, "end_date", value = as.Date(max_date))
+    
+  })
   
+  #########################################################
   
-  # Reformat raw data into standard format for later calculations
-  # Output is a dataframe with columns datetime, d (in meters), v (in m/s)
-  # data <- eventReactive(input$render_plot, {
-  #   req(data_raw())
-  #   
-  #   data_raw <- isolate(data_raw())
-  #   
-  #   data_raw %>%
-  #     select('datetime' = input$t_header, 'd' = input$d_header, 'v' = input$v_header) %>%
-  #     mutate(d = d / 1000)
-  # })
-  
-  
-  #######################################
+  # Calculations ####
   
   # Coefficient Calculation ----
   # Reactive function that returns a vector of coefficients and R^2 values
@@ -194,8 +190,6 @@ server <- function(input, output, session) {
          )
     
   })
-  ##################################################
-  
   
   # Wide Dataframe Calculation ----
   df_curves <- eventReactive(input$render_plot, {
@@ -251,6 +245,10 @@ server <- function(input, output, session) {
     df_curves
   })
   
+  ########################################################
+  
+  # Plotting ####
+  
   # Conversion from Wide Dataframe to Long Dataframe ----
   df_curves_long <- reactive({
     req(df_curves())
@@ -286,7 +284,7 @@ server <- function(input, output, session) {
     df_curves_long
   })
   
-  # Reformat data for plotting ----
+  # Reformat data for plotting
   data_formatted <- eventReactive(input$render_plot, {
     req(data$formatted)
     data_raw <- data$formatted %>%
@@ -304,8 +302,8 @@ server <- function(input, output, session) {
     
   })
   
+  # Send plot to output
   
-  # Plotting ----
   output$scatterplot <- renderPlotly({
     df_curves_long <- df_curves_long()
     df_data_filtered <- data_formatted()
@@ -331,14 +329,6 @@ server <- function(input, output, session) {
     )
   })
 
-  # Summarize Consecutive Data in Output Table "data_table" ----
-  observeEvent(input$render_gaps_table, {
-    req(data$formatted)
-    df <- data$formatted
-    
-    summary_table <- get_consecutive_periods(df)
-    
-    output$consecutive_periods_table <- renderTable({summary_table})
-  })
+  
 
 }

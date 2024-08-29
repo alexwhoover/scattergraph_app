@@ -1,9 +1,11 @@
 # Load necessary libraries
 library(shiny)
+library(shinyjs)
 library(plotly)
 
 # Define UI for application
 ui <- fluidPage(
+  useShinyjs(),
   
   # Application title
   titlePanel("Interactive Scatter Plot Generator"),
@@ -25,15 +27,16 @@ ui <- fluidPage(
       selectInput("d_header", "Depth Column Name:", choices = NULL),
       selectInput("v_header", "Velocity Column Name:", choices = NULL),
       
+      # Button: Lock-in Data
+      actionButton(inputId = "lock_in", label = "Confirm Data"),
+      p('\n'),
+      
       # Input: Date Range
-      dateInput("start_date", "Start Date:", value = as.Date("2020-01-01")),
-      dateInput("end_date", "End Date:", value = as.Date("2024-06-26")),
+      dateInput("start_date", "Start Date:"),
+      dateInput("end_date", "End Date:"),
       
       # Input: Plot Title
       textInput("plot_title", "Plot Title:", value = ""),
-      
-      # Output: Table to display min/max dates
-      tableOutput("file_contents"),
       
       # Input: Velocity Value Range
       numericInput("v_min", "Minimum Velocity (m/s)", value = 0),
@@ -56,18 +59,13 @@ ui <- fluidPage(
       numericInput("d_dog", "Dead Dog (mm): ", value = 0),
       
       # Button: Render Plot
-      actionButton(inputId = "render_plot", label = "Render Plot"),
-      p('\n'),
-      
-      # Button: Render Data Gaps Table
-      actionButton(inputId = "render_gaps_table", label = "Show Data Gaps")
+      actionButton(inputId = "render_plot", label = "Render Plot")
     ),
     
     # Main panel for displaying outputs
     mainPanel(
       tabsetPanel(
-        tabPanel("Data Preview", h2("Raw Data Preview"), fluidRow(tableOutput("data_preview")), h2("Formatted Data Preview"), fluidRow(tableOutput("data_preview_formatted")), h2("Summary Statistics"), fluidRow(tableOutput("summary_stats"))),
-        tabPanel("Data Summary", tableOutput("consecutive_periods_table")),
+        tabPanel("Data Preview", h2("Raw Data Preview"), fluidRow(tableOutput("data_preview")), h2("Formatted Data Preview"), fluidRow(tableOutput("data_preview_formatted")), h2("Summary Statistics"), fluidRow(tableOutput("summary_stats")), h2("Data Gaps"), fluidRow(tableOutput("data_gaps"))),
         tabPanel("Plot", plotlyOutput("scatterplot", height = "800px"), tableOutput("coefList"))
 
       )
