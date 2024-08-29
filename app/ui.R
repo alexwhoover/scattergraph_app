@@ -62,7 +62,7 @@ ui <- fluidPage(
       # Button: Render Plot
       fluidRow(
         column(width = 4, actionButton(inputId = "render_plot", label = "Render Plot")),
-        column(width = 4, actionButton(inputId = "save_report", label = "Generate Report"))
+        column(width = 4, downloadButton("save_report", "Generate Report"))
         )
     ),
     

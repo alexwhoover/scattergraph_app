@@ -96,7 +96,7 @@ server <- function(input, output, session) {
   
   # Reactive dependencies: lock_in
   observeEvent(input$lock_in, {
-    lapply(c("n_skip", "t_header", "d_header", "v_header"), disable)
+    lapply(c("n_skip", "t_header", "d_header", "v_header", "q_header"), disable)
     lapply(c("start_date", "end_date", "plot_title", "v_min", "v_max", "d_min", "d_max", "n", "D", "S", "d_dog", "render_plot"), enable)
     
     min_date <- data$formatted %>%
@@ -349,29 +349,61 @@ server <- function(input, output, session) {
   
   # Report Generation ####
   
-  observeEvent(input$save_report, {
-    
-    print(getwd())
-    
-    # Open workbook template
-    wb <- loadWorkbook("../templates/summary_template.xlsx")
-    
-    # Paste formatted data into "Data" sheet
-    data <- data$formatted_q %>%
-      select("Timestamp" = datetime, "Depth (mm)" = d, "Velocity (m/s)" = v, "Flowrate (L/s)" = q)
-    
-    writeDataTable(wb, sheet = "Data", x = data, startCol = 1, startRow = 1, tableName = "data")
-    
-    #curves <- df_curves()
-    
-    # Write information to "Summary" sheet
-    writeData(wb, sheet = "Summary", x = as.character(Sys.Date()), startCol = 2, startRow = 3)
-    writeData(wb, sheet = "Summary", x = input$D, startCol = 4, startRow = 1)
-    writeData(wb, sheet = "Summary", x = input$S, startCol = 4, startRow = 2)
-    writeData(wb, sheet = "Summary", x = as.character(input$start_date), startCol = 2, startRow = 4)
-    writeData(wb, sheet = "Summary", x = as.character(input$end_date), startCol = 2, startRow = 5)
-    
-    saveWorkbook(wb, paste0("../reports/exported_report_", format(Sys.time(), format = "%Y%m%d_%H%M"), ".xlsx"))
+  # observeEvent(input$save_report, {
+  #   
+  #   print(getwd())
+  #   
+  #   # Open workbook template
+  #   wb <- loadWorkbook("../templates/summary_template.xlsx")
+  #   
+  #   # Paste formatted data into "Data" sheet
+  #   data <- data$formatted_q %>%
+  #     select("Timestamp" = datetime, "Depth (mm)" = d, "Velocity (m/s)" = v, "Flowrate (L/s)" = q)
+  #   
+  #   writeDataTable(wb, sheet = "Data", x = data, startCol = 1, startRow = 1, tableName = "data")
+  #   
+  #   curves <- df_curves() %>%
+  #     mutate(d_mm = d*1000) %>%
+  #     select(d_percent, d, d_mm, everything())
+  #   writeDataTable(wb, sheet = "Scattergraph_Data", x = curves, startCol = 1, startRow = 1, tableName = "curves")
+  #   
+  #   # Write information to "Summary" sheet
+  #   writeData(wb, sheet = "Summary", x = as.character(Sys.Date()), startCol = 2, startRow = 3)
+  #   writeData(wb, sheet = "Summary", x = input$D, startCol = 4, startRow = 1)
+  #   writeData(wb, sheet = "Summary", x = input$S, startCol = 4, startRow = 2)
+  #   writeData(wb, sheet = "Summary", x = as.character(input$start_date), startCol = 2, startRow = 4)
+  #   writeData(wb, sheet = "Summary", x = as.character(input$end_date), startCol = 2, startRow = 5)
+  #   
+  #   saveWorkbook(wb, paste0("../reports/exported_report_", format(Sys.time(), format = "%Y%m%d_%H%M"), ".xlsx"))
+  # })
+  
+  output$save_report <- downloadHandler(
+    filename = function () {
+      paste0("exported_report_", format(Sys.time(), format = "%Y%m%d_%H%M"), ".xlsx")
+    },
+    content = function(file) {
+      # Open workbook template
+      wb <- loadWorkbook("../templates/summary_template.xlsx")
+  
+      # Paste formatted data into "Data" sheet
+      data <- data$formatted_q %>%
+        select("Timestamp" = datetime, "Depth (mm)" = d, "Velocity (m/s)" = v, "Flowrate (L/s)" = q)
+  
+      writeDataTable(wb, sheet = "Data", x = data, startCol = 1, startRow = 1, tableName = "data")
+  
+      curves <- df_curves() %>%
+        mutate(d_mm = d*1000) %>%
+        select(d_percent, d, d_mm, everything())
+      writeDataTable(wb, sheet = "Scattergraph_Data", x = curves, startCol = 1, startRow = 1, tableName = "curves")
+  
+      # Write information to "Summary" sheet
+      writeData(wb, sheet = "Summary", x = as.character(Sys.Date()), startCol = 2, startRow = 3)
+      writeData(wb, sheet = "Summary", x = input$D, startCol = 4, startRow = 1)
+      writeData(wb, sheet = "Summary", x = input$S, startCol = 4, startRow = 2)
+      writeData(wb, sheet = "Summary", x = as.character(input$start_date), startCol = 2, startRow = 4)
+      writeData(wb, sheet = "Summary", x = as.character(input$end_date), startCol = 2, startRow = 5)
+  
+      saveWorkbook(wb, file, overwrite = TRUE)
   })
   
   
