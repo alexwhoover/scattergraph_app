@@ -350,30 +350,30 @@ server <- function(input, output, session) {
   # Report Generation ####
   
   # observeEvent(input$save_report, {
-  #   
+  # 
   #   print(getwd())
-  #   
+  # 
   #   # Open workbook template
   #   wb <- loadWorkbook("../templates/summary_template.xlsx")
-  #   
+  # 
   #   # Paste formatted data into "Data" sheet
   #   data <- data$formatted_q %>%
   #     select("Timestamp" = datetime, "Depth (mm)" = d, "Velocity (m/s)" = v, "Flowrate (L/s)" = q)
-  #   
+  # 
   #   writeDataTable(wb, sheet = "Data", x = data, startCol = 1, startRow = 1, tableName = "data")
-  #   
+  # 
   #   curves <- df_curves() %>%
   #     mutate(d_mm = d*1000) %>%
   #     select(d_percent, d, d_mm, everything())
   #   writeDataTable(wb, sheet = "Scattergraph_Data", x = curves, startCol = 1, startRow = 1, tableName = "curves")
-  #   
+  # 
   #   # Write information to "Summary" sheet
   #   writeData(wb, sheet = "Summary", x = as.character(Sys.Date()), startCol = 2, startRow = 3)
   #   writeData(wb, sheet = "Summary", x = input$D, startCol = 4, startRow = 1)
   #   writeData(wb, sheet = "Summary", x = input$S, startCol = 4, startRow = 2)
   #   writeData(wb, sheet = "Summary", x = as.character(input$start_date), startCol = 2, startRow = 4)
   #   writeData(wb, sheet = "Summary", x = as.character(input$end_date), startCol = 2, startRow = 5)
-  #   
+  # 
   #   saveWorkbook(wb, paste0("../reports/exported_report_", format(Sys.time(), format = "%Y%m%d_%H%M"), ".xlsx"))
   # })
   
@@ -383,19 +383,25 @@ server <- function(input, output, session) {
     },
     content = function(file) {
       # Open workbook template
-      wb <- loadWorkbook("../templates/summary_template.xlsx")
+      tryCatch({
+        wb <- loadWorkbook("../templates/summary_template.xlsx")
+        print("Template loaded")
+      }, error = function(e) {
+        print("Error loading template")
+      })
+      
   
       # Paste formatted data into "Data" sheet
       data <- data$formatted_q %>%
         select("Timestamp" = datetime, "Depth (mm)" = d, "Velocity (m/s)" = v, "Flowrate (L/s)" = q)
-  
+
       writeDataTable(wb, sheet = "Data", x = data, startCol = 1, startRow = 1, tableName = "data")
-  
+
       curves <- df_curves() %>%
         mutate(d_mm = d*1000) %>%
         select(d_percent, d, d_mm, everything())
       writeDataTable(wb, sheet = "Scattergraph_Data", x = curves, startCol = 1, startRow = 1, tableName = "curves")
-  
+
       # Write information to "Summary" sheet
       writeData(wb, sheet = "Summary", x = as.character(Sys.Date()), startCol = 2, startRow = 3)
       writeData(wb, sheet = "Summary", x = input$D, startCol = 4, startRow = 1)
