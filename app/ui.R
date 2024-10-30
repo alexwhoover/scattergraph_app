@@ -71,7 +71,8 @@ ui <- fluidPage(
       tabsetPanel(
         tabPanel("Instructions", h2("Data Format"), p("The input csv file must include data for datetime, depth and velocity."), p("\n"), p("Datetime must be in the format YYYY-MM-DD HH:MM:SS, depth must be in millimeters, and velocity must be in meters per second.")),
         tabPanel("Data Preview", h2("Raw Data Preview"), fluidRow(tableOutput("data_preview")), h2("Formatted Data Preview"), fluidRow(tableOutput("data_preview_formatted")), h2("Summary Statistics"), fluidRow(tableOutput("summary_stats")), h2("Data Gaps"), fluidRow(tableOutput("data_gaps"))),
-        tabPanel("Plot", plotlyOutput("scatterplot", height = "800px"), tableOutput("coefList"))
+        tabPanel("Plot", plotlyOutput("scatterplot", height = "800px"), tableOutput("coefList")),
+        tabPanel("Weekly Plot", plotlyOutput("weekly_scatterplot", height = "800px"))
 
       )
     )

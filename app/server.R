@@ -318,6 +318,24 @@ server <- function(input, output, session) {
     
   })
   
+  # Reformat data for weekly plotting
+  # data_formatted_weekly <- eventReactive(input$render_plot, {
+  #   req(data$formatted)
+  #   data_raw <- data$formatted %>%
+  #     filter(datetime >= input$start_date & input$end_date) %>%
+  #     mutate(grouped_time = floor_date(datetime, "week"))
+  #   
+  #   data_raw %>%
+  #     mutate(
+  #       d_mm = d * 1000,
+  #       Legend = ifelse(
+  #         v >= input$v_min & v <= input$v_max & d_mm >= input$d_min & d_mm <= input$d_max,
+  #         "Observed",
+  #         "Discarded"
+  #       )
+  #     )
+  # })
+  
   # Send plot to output
   
   output$scatterplot <- renderPlotly({
@@ -345,38 +363,31 @@ server <- function(input, output, session) {
     )
   })
   
+  output$weekly_scatterplot <- renderPlotly({
+    df_curves_long <- df_curves_long()
+    df_data_filtered <- data_formatted() %>%
+      mutate(grouped_time = floor_date(datetime, "week"))
+    
+    # Calculate x bound for plot visual
+    max_x <- df_curves_long %>%
+      filter(Legend %in% c("Design Method", "Lanfear-Coll Method", "Stevens-Schutzback Method")) %>%
+      summarize(max_x = max(v, na.rm = TRUE)) %>%
+      pull()
+    
+    # Plot
+    df_data_filtered %>%
+      plot_ly(x = ~v, y = ~d_mm, frame = ~grouped_time, type = "scatter", mode = "markers", name = "Scatter") %>%
+      layout(
+        title = input$plot_title,
+        xaxis = list(title = "Velocity (m/s)"),
+        yaxis = list(title = "Depth (mm)")
+      ) %>%
+      animation_opts(transition = 0, frame = 1000, redraw = TRUE)
+  })
+  
   ########################################################
   
   # Report Generation ####
-  
-  # observeEvent(input$save_report, {
-  # 
-  #   print(getwd())
-  # 
-  #   # Open workbook template
-  #   wb <- loadWorkbook("../templates/summary_template.xlsx")
-  # 
-  #   # Paste formatted data into "Data" sheet
-  #   data <- data$formatted_q %>%
-  #     select("Timestamp" = datetime, "Depth (mm)" = d, "Velocity (m/s)" = v, "Flowrate (L/s)" = q)
-  # 
-  #   writeDataTable(wb, sheet = "Data", x = data, startCol = 1, startRow = 1, tableName = "data")
-  # 
-  #   curves <- df_curves() %>%
-  #     mutate(d_mm = d*1000) %>%
-  #     select(d_percent, d, d_mm, everything())
-  #   writeDataTable(wb, sheet = "Scattergraph_Data", x = curves, startCol = 1, startRow = 1, tableName = "curves")
-  # 
-  #   # Write information to "Summary" sheet
-  #   writeData(wb, sheet = "Summary", x = as.character(Sys.Date()), startCol = 2, startRow = 3)
-  #   writeData(wb, sheet = "Summary", x = input$D, startCol = 4, startRow = 1)
-  #   writeData(wb, sheet = "Summary", x = input$S, startCol = 4, startRow = 2)
-  #   writeData(wb, sheet = "Summary", x = as.character(input$start_date), startCol = 2, startRow = 4)
-  #   writeData(wb, sheet = "Summary", x = as.character(input$end_date), startCol = 2, startRow = 5)
-  # 
-  #   saveWorkbook(wb, paste0("../reports/exported_report_", format(Sys.time(), format = "%Y%m%d_%H%M"), ".xlsx"))
-  # })
-  
   output$save_report <- downloadHandler(
     filename = function () {
       paste0("exported_report_", format(Sys.time(), format = "%Y%m%d_%H%M"), ".xlsx")
@@ -384,7 +395,8 @@ server <- function(input, output, session) {
     content = function(file) {
       # Open workbook template
       tryCatch({
-        wb <- loadWorkbook("../templates/summary_template.xlsx")
+        # wb <- loadWorkbook("../templates/summary_template.xlsx")
+        wb <- loadWorkbook("summary_template.xlsx")
         print("Template loaded")
       }, error = function(e) {
         print("Error loading template")
