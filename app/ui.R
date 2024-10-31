@@ -69,7 +69,21 @@ ui <- fluidPage(
     # Main panel for displaying outputs
     mainPanel(
       tabsetPanel(
-        tabPanel("Instructions", h2("Data Format"), p("The input csv file must include data for datetime, depth and velocity."), p("\n"), p("Datetime must be in the format YYYY-MM-DD HH:MM:SS, depth must be in millimeters, and velocity must be in meters per second.")),
+        tabPanel("Instructions", 
+                 h2("Data Format"), 
+                 p("The input csv file must include data for datetime, depth and velocity."), 
+                 p("\n"), 
+                 p("Datetime must be in the format YYYY-MM-DD HH:MM:SS, depth must be in millimeters, and velocity must be in meters per second."),
+                 p("\n"),
+                 h2("Current Error Log / Suggestions for Improvement"),
+                 p("1. Negative velocities are filtered out in the main plot."),
+                 p("2. Pipe height line has not yet been added."),
+                 p("3. Weekly scattergraph should include Manning's Curves for reference."),
+                 p("4. Weekly scattergraph should show filtered points in gray."),
+                 p("5. Should add option to download data directly from FlowWorks or import via CSV."),
+                 p("6. Add more date format options to CSV."),
+                 p("7. Add more unit options to CSV.")
+              ),
         tabPanel("Data Preview", h2("Raw Data Preview"), fluidRow(tableOutput("data_preview")), h2("Formatted Data Preview"), fluidRow(tableOutput("data_preview_formatted")), h2("Summary Statistics"), fluidRow(tableOutput("summary_stats")), h2("Data Gaps"), fluidRow(tableOutput("data_gaps"))),
         tabPanel("Plot", plotlyOutput("scatterplot", height = "800px"), tableOutput("coefList")),
         tabPanel("Weekly Plot", plotlyOutput("weekly_scatterplot", height = "800px"))
