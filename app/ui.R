@@ -62,8 +62,15 @@ ui <- fluidPage(
       # Button: Render Plot
       fluidRow(
         column(width = 4, actionButton(inputId = "render_plot", label = "Render Plot")),
-        column(width = 4, downloadButton("save_report", "Generate Report"))
-        )
+        column(width = 4, downloadButton("save_report", "Generate Summary Excel"))
+      ),
+      
+      p('\n'),
+      
+      fluidRow(
+        column(width = 4, downloadButton("save_scattergraph", "Generate Scattergraph Excel"))
+      )
+      
     ),
     
     # Main panel for displaying outputs

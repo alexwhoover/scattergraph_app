@@ -10,7 +10,7 @@ source("functions.R")
 options(shiny.maxRequestSize=30*1024^2)
 
 server <- function(input, output, session) {
-  lapply(c("start_date", "end_date", "plot_title", "v_min", "v_max", "d_min", "d_max", "n", "D", "S", "d_dog", "render_plot", "save_report"), disable)
+  lapply(c("start_date", "end_date", "plot_title", "v_min", "v_max", "d_min", "d_max", "n", "D", "S", "d_dog", "render_plot", "save_report", "save_scattergraph"), disable)
   
   # Import Data ####
   data <- reactiveValues(raw = NULL, formatted = NULL, formatted_q = NULL)
@@ -20,7 +20,6 @@ server <- function(input, output, session) {
     input$data_file
     input$n_skip
   }, {
-    print("working")
     if(!is.null(input$data_file)) {
       tryCatch({
         # Read uploaded csv file    
@@ -115,7 +114,10 @@ server <- function(input, output, session) {
     
   })
   
-  observeEvent(input$render_plot, enable("save_report"))
+  observeEvent(input$render_plot, {
+    enable("save_report")
+    enable("save_scattergraph")
+  })
   
   #########################################################
   
@@ -395,7 +397,6 @@ server <- function(input, output, session) {
     content = function(file) {
       # Open workbook template
       tryCatch({
-        # wb <- loadWorkbook("../templates/summary_template.xlsx")
         wb <- loadWorkbook("summary_template.xlsx")
         print("Template loaded")
       }, error = function(e) {
@@ -423,6 +424,35 @@ server <- function(input, output, session) {
   
       saveWorkbook(wb, file, overwrite = TRUE)
   })
+  
+  output$save_scattergraph <- downloadHandler(
+    filename = function () {
+      paste0("exported_scattergraph_", format(Sys.time(), format = "%Y%m%d_%H%M"), ".xlsx")
+    },
+    content = function(file) {
+      # Open workbook template
+      tryCatch({
+        wb <- loadWorkbook("scattergraph_template.xlsx")
+        print("Template loaded")
+      }, error = function(e) {
+        print("Error loading template")
+      })
+      
+      
+      # Paste formatted data into "Data Input" sheet
+      data <- data$formatted_q %>%
+        select("Timestamp" = datetime, "Depth (mm)" = d, "Velocity (m/s)" = v)
+      
+      writeData(wb, sheet = "Data Input", x = data, startCol = 7, startRow = 3, colNames = FALSE)
+      
+      
+      # Write information to "Data Input" sheet
+      writeData(wb, sheet = "Data Input", x = input$D / 1000, startCol = 3, startRow = 11)
+      writeData(wb, sheet = "Data Input", x = input$d_dog / 1000, startCol = 3, startRow = 12)
+      writeData(wb, sheet = "Data Input", x = input$S, startCol = 2, startRow = 17)
+      
+      saveWorkbook(wb, file, overwrite = TRUE)
+    })
   
   
 
