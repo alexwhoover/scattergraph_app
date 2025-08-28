@@ -345,10 +345,16 @@ server <- function(input, output, session) {
     df_data_filtered <- data_formatted()
     
     # Calculate x bound for plot visual
-    max_x <- df_curves_long %>%
+    max_x_curves <- df_curves_long %>%
       filter(Legend %in% c("Design Method", "Lanfear-Coll Method", "Stevens-Schutzback Method")) %>%
       summarize(max_x = max(v, na.rm = TRUE)) %>%
       pull()
+    
+    max_x_data <- df_data_filtered %>%
+      summarize(max_v = max(v, na.rm = TRUE)) %>%
+      pull()
+    
+    max_x = max(c(max_x_curves, max_x_data), na.rm = TRUE) * 1.2
     
     # Plot
     ggplotly(

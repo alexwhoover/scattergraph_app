@@ -84,7 +84,6 @@ ui <- fluidPage(
                  p("\n"),
                  h2("Current Error Log"),
                  p("1. Negative velocities are filtered out in the main plot."),
-                 p("2. Data points are filtered if they exceed the calculated maximum capacity of the pipe. Surcharge with flow relief could theoretically go past this, seen with STC_403734_US1."),
                  h2("Suggestions for Improvement"),
                  p("1. Pipe height line has not yet been added."),
                  p("2. Weekly scattergraph should include Manning's Curves for reference."),
