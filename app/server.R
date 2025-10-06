@@ -5,7 +5,7 @@ library(tidyverse)
 library(openxlsx)
 
 # Load mathematical functions for calculating partial flow in circular pipe
-source("functions.R")
+source("../R/functions.R")
 
 options(shiny.maxRequestSize=30*1024^2)
 
@@ -403,7 +403,7 @@ server <- function(input, output, session) {
     content = function(file) {
       # Open workbook template
       tryCatch({
-        wb <- loadWorkbook("summary_template.xlsx")
+        wb <- loadWorkbook("../data/excel_templates/summary_template.xlsx")
         print("Template loaded")
       }, error = function(e) {
         print("Error loading template")
@@ -438,7 +438,7 @@ server <- function(input, output, session) {
     content = function(file) {
       # Open workbook template
       tryCatch({
-        wb <- loadWorkbook("scattergraph_template.xlsx")
+        wb <- loadWorkbook("../data/excel_templates/scattergraph_template.xlsx")
         print("Template loaded")
       }, error = function(e) {
         print("Error loading template")
