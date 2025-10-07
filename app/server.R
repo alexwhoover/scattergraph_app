@@ -121,90 +121,24 @@ server <- function(input, output, session) {
   
   #########################################################
   
-  # Calculations ####
-  
-  # Coefficient Calculation ----
-  # Reactive function that returns a vector of coefficients and R^2 values
-  # in format v_coef = list(C_DM, R2_DM, C_LC, R2_LC, C_SS, R2_SS)
-  # Filter data
-  v_coef <- eventReactive(input$render_plot, {
+  calculate_coefficients <- eventReactive(input$render_plot, {
     req(data$formatted)
-    df <- data$formatted %>%
-      filter(datetime >= input$start_date & datetime < input$end_date) %>%
-      filter(v >= input$v_min & v <= input$v_max) %>% # Filter by velocity range
-      filter(d >= input$d_min/1000 & d <= input$d_max/1000) # Filter by depth range
+    filtered_df <- filter_formatted_data(data$formatted, 
+                                input$start_date, 
+                                input$end_date, 
+                                input$v_min, 
+                                input$v_max, 
+                                input$d_min, 
+                                input$d_max, 
+                                input$D)
     
-    # Design Method ====
-    # Calculate coefficient based on user input values
-    C_DM <- (1/input$n)*(input$S/100)^(0.5)
+    DM <- compute_regression_method(filtered_df, input$D, method = "DM", n = input$n, S = input$S)
+    LC <- compute_regression_method(filtered_df, input$D, method = "LC")
+    SS <- compute_regression_method(filtered_df, input$D, method = "SS", d_dog = input$d_dog)
     
-    # Compute stats for R^2 calculation
-    stats_DM = df %>% select(v, d) %>%
-      filter(d <= input$D/1000) %>%
-      mutate(
-        theta = calculate_theta(d, input$D/1000),
-        A = calculate_area(theta, input$D/1000),
-        P = calculate_P(theta, input$D/1000),
-        R = A/P,
-      ) %>%
-      compute_stats(.) %>%
-      compute_error(., C_DM)
-    
-    # Calculate R^2
-    R2_DM = calculate_R2(stats_DM)
-    
-    # Lanfear-Coll Method ====
-    
-    # Compute stats for linear regression with 0 intercept
-    stats_LC = df %>% select(v, d) %>%
-      filter(d <= input$D/1000) %>%
-      mutate(
-        theta = calculate_theta(d, input$D/1000),
-        A = calculate_area(theta, input$D/1000),
-        P = calculate_P(theta, input$D/1000),
-        R = A/P,
-      ) %>%
-      compute_stats(.)
-    
-    # Linear regression to calculate C
-    C_LC = sum(stats_LC$xy)/sum(stats_LC$x2)
-    
-    # Compute error stats for R^2 calculation
-    stats_LC <- stats_LC %>%
-      compute_error(., C_LC)
-    
-    # Calculate R^2
-    R2_LC = calculate_R2(stats_LC)
-    
-    # Stevens-Schutzack Method ====
-    
-    # Compute stats for linear regression with 0 intercept
-    stats_SS = df %>% select(v, d) %>%
-      filter(d <= input$D/1000) %>%
-      mutate(
-        d_e = ifelse(d - input$d_dog/1000 < 0, 0, d - input$d_dog/1000),
-        theta = calculate_theta(d, input$D/1000),
-        theta_e = calculate_theta(d_e, input$D/1000),
-        A_e = calculate_area(theta_e, input$D/1000),
-        P = calculate_P(theta, input$D/1000),
-        R = A_e/P,
-      ) %>%
-      compute_stats(.)
-    
-    # Linear regression to calculate C
-    C_SS = sum(stats_SS$xy)/sum(stats_SS$x2)
-    
-    # Compute error stats for R^2 calculation
-    stats_SS <- stats_SS %>%
-      compute_error(., C_SS)
-    
-    # Compute R^2
-    R2_SS = calculate_R2(stats_SS)
-    
-    # Return calculated coefficients and R^2 values in named list
-    list("C_DM" = C_DM, "R2_DM" = R2_DM,
-         "C_LC" = C_LC, "R2_LC" = R2_LC,
-         "C_SS" = C_SS, "R2_SS" = R2_SS
+    list("C_DM" = DM$C, "R2_DM" = DM$R2,
+         "C_LC" = LC$C, "R2_LC" = LC$R2,
+         "C_SS" = SS$C, "R2_SS" = SS$R2
          )
     
   })
@@ -213,13 +147,13 @@ server <- function(input, output, session) {
   df_curves <- eventReactive(input$render_plot, {
     
     # Calculate coefficients and R^2 values
-    v_coef <- v_coef()
+    coeffs <- calculate_coefficients()
     
-    # Output v_coef to table
+    # Output calculate_coefficients to table
     output$coefList <- renderTable({
       req(data$formatted)
       
-      v_coef
+      coeffs
     })
     
     # Calculate predicted velocities from 3 methods
@@ -234,9 +168,9 @@ server <- function(input, output, session) {
       P = calculate_P(theta, input$D/1000),
       R = A/P,
       R_e = A_e/P,
-      v_DM = v_coef$C_DM * R ^ (2/3),
-      v_LC = v_coef$C_LC * R ^ (2/3),
-      v_SS = v_coef$C_SS * R_e ^ (2/3)
+      v_DM = coeffs$C_DM * R ^ (2/3),
+      v_LC = coeffs$C_LC * R ^ (2/3),
+      v_SS = coeffs$C_SS * R_e ^ (2/3)
     ) %>%
       
       # Iso-Froude Lines
@@ -319,24 +253,6 @@ server <- function(input, output, session) {
       )
     
   })
-  
-  # Reformat data for weekly plotting
-  # data_formatted_weekly <- eventReactive(input$render_plot, {
-  #   req(data$formatted)
-  #   data_raw <- data$formatted %>%
-  #     filter(datetime >= input$start_date & input$end_date) %>%
-  #     mutate(grouped_time = floor_date(datetime, "week"))
-  #   
-  #   data_raw %>%
-  #     mutate(
-  #       d_mm = d * 1000,
-  #       Legend = ifelse(
-  #         v >= input$v_min & v <= input$v_max & d_mm >= input$d_min & d_mm <= input$d_max,
-  #         "Observed",
-  #         "Discarded"
-  #       )
-  #     )
-  # })
   
   # Send plot to output
   

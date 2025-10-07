@@ -1,5 +1,5 @@
 library(testthat)
-source("../../functions.R")
+source("../../R/functions.R")
 
 # Test tolerance for floating-point comparisons
 TOLERANCE <- 1e-5

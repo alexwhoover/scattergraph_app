@@ -45,7 +45,7 @@ calculate_R2 <- function(df) {
 # Function for computing necessary variables for linear regression with 0 intercept
 # Inputs: A dataframe with columns R (hydraulic radius (m)), v (velocity (m/s))
 # Output: The input dataframe with columns added for x, y, x * y, and x^2. This dataframe is then used to calculate the C coefficient.
-compute_stats <- function(df) {
+compute_regression_vars <- function(df) {
   df %>%
     mutate(
       x = R ^ (2/3),
@@ -66,6 +66,98 @@ compute_error <- function(df, C) {
       SSE = (v_pred - v)^2,
       SYY = (v - v_avg)^2
     )
+}
+
+filter_formatted_data <- function(formatted_data, start_date, end_date, v_min, v_max, d_min, d_max, D) {
+  formatted_data %>%
+    filter(datetime >= start_date & datetime < end_date) %>%
+    filter(v >= v_min & v <= v_max) %>%
+    filter(d >= d_min/1000 & d <= d_max/1000 & d <= D/1000)
+}
+
+compute_hydraulics <- function(filtered_df, D) {
+  filtered_df %>%
+    mutate(
+      theta = calculate_theta(d, D/1000),
+      A = calculate_area(theta, D/1000),
+      P = calculate_P(theta, D/1000),
+      R = A/P,
+    )
+}
+
+compute_hydraulics_SS <- function(filtered_df, D, d_dog) {
+  filtered_df %>%
+    mutate(
+      d_e = ifelse(d - d_dog/1000 < 0, 0, d - d_dog/1000),
+      theta = calculate_theta(d, D/1000),
+      theta_e = calculate_theta(d_e, D/1000),
+      A_e = calculate_area(theta_e, D/1000),
+      P = calculate_P(theta, D/1000),
+      R = A_e/P,
+    )
+}
+
+# compute_regression_method <- function(filtered_df, D, method, d_dog = NULL, n = NULL, S = NULL) {
+#   if (method == "DM") {
+#     C <- (1/n)*(S/100)^(0.5)
+#     filtered_df <- filtered_df %>%
+#       compute_hydraulics(D) %>%
+#       compute_regression_vars()
+#   }
+#   else if (method == "LC") {
+#     filtered_df <- filtered_df %>%
+#       compute_hydraulics(D) %>%
+#       compute_regression_vars()
+#     C = sum(filtered_df$xy)/sum(filtered_df$x2)
+# 
+#   }
+#   else if (method == "SS") {
+#     filtered_df <- filtered_df %>%
+#       compute_hydraulics_SS(D, d_dog) %>%
+#       compute_regression_vars()
+#     C = sum(filtered_df$xy)/sum(filtered_df$x2)
+# 
+#   }
+#   else {
+#     stop("Invalid method for regression fitting.")
+#   }
+#   filtered_df <- filtered_df %>%
+#     compute_error(C)
+#   R2 = calculate_R2(filtered_df)
+#   
+#   list(C = C, R2 = R2)
+# }
+
+compute_regression_method <- function(filtered_df, D, method, d_dog = NULL, n = NULL, S = NULL) {
+  
+  # Common preprocessing
+  if (method %in% c("DM", "LC")) {
+    filtered_df <- filtered_df %>%
+      compute_hydraulics(D) %>%
+      compute_regression_vars()
+  } else if (method == "SS") {
+    filtered_df <- filtered_df %>%
+      compute_hydraulics_SS(D, d_dog) %>%
+      compute_regression_vars()
+  } else {
+    stop("Invalid method for regression fitting.")
+  }
+  
+  # Coefficient calculation
+  if (method == "DM") {
+    if (is.null(n) || is.null(S))
+      stop("n and S must be provided for the 'DM' method.")
+    C <- (1/n) * (S/100)^(0.5)
+  } else {
+    C <- sum(filtered_df$xy) / sum(filtered_df$x2)
+  }
+  
+  # Compute errors and R²
+  filtered_df <- filtered_df %>%
+    compute_error(C)
+  R2 <- calculate_R2(filtered_df)
+  
+  list(C = C, R2 = R2)
 }
 
 # Function to identify consecutive periods. A period of consecutive data is defined as consecutive data with no data gaps greater than 2 days. Once a data gap of at least 2 days is found, a new period is started.
