@@ -97,45 +97,18 @@ compute_hydraulics_SS <- function(filtered_df, D, d_dog) {
     )
 }
 
-# compute_regression_method <- function(filtered_df, D, method, d_dog = NULL, n = NULL, S = NULL) {
-#   if (method == "DM") {
-#     C <- (1/n)*(S/100)^(0.5)
-#     filtered_df <- filtered_df %>%
-#       compute_hydraulics(D) %>%
-#       compute_regression_vars()
-#   }
-#   else if (method == "LC") {
-#     filtered_df <- filtered_df %>%
-#       compute_hydraulics(D) %>%
-#       compute_regression_vars()
-#     C = sum(filtered_df$xy)/sum(filtered_df$x2)
-# 
-#   }
-#   else if (method == "SS") {
-#     filtered_df <- filtered_df %>%
-#       compute_hydraulics_SS(D, d_dog) %>%
-#       compute_regression_vars()
-#     C = sum(filtered_df$xy)/sum(filtered_df$x2)
-# 
-#   }
-#   else {
-#     stop("Invalid method for regression fitting.")
-#   }
-#   filtered_df <- filtered_df %>%
-#     compute_error(C)
-#   R2 = calculate_R2(filtered_df)
-#   
-#   list(C = C, R2 = R2)
-# }
-
 compute_regression_method <- function(filtered_df, D, method, d_dog = NULL, n = NULL, S = NULL) {
-  
-  # Common preprocessing
+  # Compute the Coefficient, C, for the Manning's Equation v = CR^(2/3) using three different methods:
+  # DM = Design Method, LS = Lanfear-Coll Method, SS = Stevens-Schutzback Method
+  # See ADS Whitepaper "Scattergraph Principles and Practice - A Comparison of Various Applications of the Manning Equation"
   if (method %in% c("DM", "LC")) {
     filtered_df <- filtered_df %>%
       compute_hydraulics(D) %>%
       compute_regression_vars()
   } else if (method == "SS") {
+    if (is.null(d_dog)) {
+      stop("Dead dog (d_dog) value must be specified for SS method, even if 0.")
+    }
     filtered_df <- filtered_df %>%
       compute_hydraulics_SS(D, d_dog) %>%
       compute_regression_vars()
@@ -145,14 +118,16 @@ compute_regression_method <- function(filtered_df, D, method, d_dog = NULL, n = 
   
   # Coefficient calculation
   if (method == "DM") {
-    if (is.null(n) || is.null(S))
-      stop("n and S must be provided for the 'DM' method.")
+    if (is.null(n) || is.null(S)) {
+      stop("n and S must be provided for the 'DM' method.")     
+    }
+
     C <- (1/n) * (S/100)^(0.5)
   } else {
     C <- sum(filtered_df$xy) / sum(filtered_df$x2)
   }
   
-  # Compute errors and R²
+  # Compute R²
   filtered_df <- filtered_df %>%
     compute_error(C)
   R2 <- calculate_R2(filtered_df)

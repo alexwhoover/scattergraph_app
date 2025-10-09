@@ -10,7 +10,7 @@ source("../R/functions.R")
 options(shiny.maxRequestSize=30*1024^2)
 
 server <- function(input, output, session) {
-  lapply(c("start_date", "end_date", "plot_title", "v_min", "v_max", "d_min", "d_max", "n", "D", "S", "d_dog", "render_plot", "save_report", "save_scattergraph"), disable)
+  lapply(c("start_date", "end_date", "v_min", "v_max", "d_min", "d_max", "n", "D", "S", "d_dog", "render_plot", "save_report", "save_scattergraph"), disable)
   
   # Import Data ####
   data <- reactiveValues(raw = NULL, formatted = NULL, formatted_q = NULL)
@@ -96,7 +96,7 @@ server <- function(input, output, session) {
   # Reactive dependencies: lock_in
   observeEvent(input$lock_in, {
     lapply(c("n_skip", "t_header", "d_header", "v_header", "q_header"), disable)
-    lapply(c("start_date", "end_date", "plot_title", "v_min", "v_max", "d_min", "d_max", "n", "D", "S", "d_dog", "render_plot"), enable)
+    lapply(c("start_date", "end_date", "v_min", "v_max", "d_min", "d_max", "n", "D", "S", "d_dog", "render_plot"), enable)
     
     min_date <- data$formatted %>%
       summarize(min_date = min(datetime, na.rm = TRUE)) %>%
@@ -280,7 +280,7 @@ server <- function(input, output, session) {
         geom_point(data = df_data_filtered[df_data_filtered$Legend == "Observed", ], aes(x = v, y = d_mm, label = datetime), color = "green4", size = 0.5) +
         geom_point(data = df_data_filtered[df_data_filtered$Legend == "Discarded", ], aes(x = v, y = d_mm, label = datetime), color = "gray", size = 0.5) + 
         xlim(0, max_x) +
-        labs(x = "Velocity (m/s)", y = "Depth (mm)", title = input$plot_title) +
+        labs(x = "Velocity (m/s)", y = "Depth (mm)", title = "Scattergraph") +
         theme_minimal(),
       
       dynamicTicks = "y"
@@ -302,7 +302,7 @@ server <- function(input, output, session) {
     df_data_filtered %>%
       plot_ly(x = ~v, y = ~d_mm, frame = ~grouped_time, type = "scatter", mode = "markers", name = "Scatter") %>%
       layout(
-        title = input$plot_title,
+        title = "Weekly Scattergraph",
         xaxis = list(title = "Velocity (m/s)"),
         yaxis = list(title = "Depth (mm)")
       ) %>%
